@@ -6,7 +6,11 @@ from config import Config
 import boto3
 import io
 
+import redis
+import json
+
 celery_app = Celery('tasks', broker=Config.CELERY_BROKER_URL, backend=Config.CELERY_RESULT_BACKEND)
+redis_client = redis.StrictRedis.from_url(Config.CELERY_BROKER_URL)
 
 # SENIOR NOTE: By default, Celery uses Pickle (insecure). We force JSON.
 celery_app.conf.update(Config.CELERY_CONFIG)
@@ -45,5 +49,16 @@ def create_task(self, object_name):
     
     except Exception as e:
         print(f'Error processing {object_name}: {str(e)}')
+        send_to_dead_letter_queue(object_name, str(e))
         # Rethrow to let Celery handle retries if needed, or return FAILED
         raise e
+
+def send_to_dead_letter_queue(object_name, reason):
+    payload = {
+        "object_name": object_name,
+        "reason": reason,
+        "timestamp": time.time()
+    }
+    # Use json.dumps for proper string serialization
+    redis_client.lpush("dead_letter_queue", json.dumps(payload))
+    print(f'Sent {object_name} to DLQ: {reason}')
