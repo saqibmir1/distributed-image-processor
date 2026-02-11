@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Image Processor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.15) 0%, transparent 20%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #818cf8, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 3rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: rgba(255, 255, 255, 0.02);
+            overflow: hidden;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+            transition: color 0.3s ease;
+        }
+
+        .upload-area:hover .upload-icon {
+            color: var(--primary);
+            transform: translateY(-5px);
+        }
+
+        .upload-text {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .upload-subtext {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #status-container {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #34d399);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .status-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #result {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .result-image {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 99px;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h1>Image Processor</h1>
+            <p class="subtitle">Distributed processing powered by Celery & Redis</p>
+
+            <div class="upload-area" id="dropArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                </div>
+                <div class="upload-text">Click to upload or drag & drop</div>
+                <div class="upload-subtext">Supports JPG, PNG (Max 5MB)</div>
+                <input type="file" id="fileInput" accept="image/*" onchange="handleFile(this.files[0])">
+            </div>
+
+            <div id="status-container">
+                <div class="status-text" id="statusText">
+                    <div class="spinner" id="spinner"></div>
+                    <span id="statusMessage">Processing...</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <div id="result">
+                <p style="margin-bottom: 1rem; color: var(--success); font-weight: 600;">Processing Complete!</p>
+                <div id="resultContent"></div>
+                <button class="btn" onclick="resetUI()">Process Another</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropArea = document.getElementById('dropArea');
+        const statusContainer = document.getElementById('status-container');
+        const statusMessage = document.getElementById('statusMessage');
+        const progressFill = document.getElementById('progressFill');
+        const resultContainer = document.getElementById('result');
+        const resultContent = document.getElementById('resultContent');
+        const spinner = document.getElementById('spinner');
+
+        // Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() { dropArea.classList.add('dragover'); }
+        function unhighlight() { dropArea.classList.remove('dragover'); }
+
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            handleFile(file);
+        }
+
+        async function handleFile(file) {
+            if (!file) return;
+
+            // UI Reset
+            dropArea.style.display = 'none';
+            statusContainer.style.display = 'block';
+            resultContainer.style.display = 'none';
+            progressFill.style.width = '10%';
+            statusMessage.innerText = "Uploading...";
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Upload failed');
+
+                const data = await response.json();
+                const taskId = data.task_id;
+
+                progressFill.style.width = '40%';
+                statusMessage.innerText = "Processing...";
+
+                poll(taskId);
+
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function poll(taskId) {
+            const response = await fetch(`/tasks/${taskId}`);
+            const data = await response.json();
+
+            if (data.task_status === 'SUCCESS') {
+                progressFill.style.width = '100%';
+                setTimeout(() => showResult(data.task_result), 500);
+            } else if (data.task_status === 'FAILURE') {
+                showError("Task failed on server.");
+            } else {
+                // Fake progress animation for pending state
+                const currentWidth = parseFloat(progressFill.style.width) || 40;
+                if (currentWidth < 90) {
+                    progressFill.style.width = (currentWidth + 5) + '%';
+                }
+                setTimeout(() => poll(taskId), 1000);
+            }
+        }
+
+        function showResult(resultPath) {
+            statusContainer.style.display = 'none';
+            resultContainer.style.display = 'block';
+
+            // Since we are not serving the volume via HTTP in simple setup, we just show text. 
+            // Ideally we would serve the uploads folder statically.
+            resultContent.innerHTML = `<div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; font-family: monospace; word-break: break-all;">${resultPath}</div>`;
+        }
+
+        function showError(msg) {
+            statusContainer.style.display = 'block';
+            spinner.style.display = 'none';
+            statusMessage.innerText = msg;
+            statusMessage.style.color = 'var(--error)';
+            progressFill.style.backgroundColor = 'var(--error)';
+        }
+
+        function resetUI() {
+            dropArea.style.display = 'block';
+            statusContainer.style.display = 'none';
+            resultContainer.style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            progressFill.style.width = '0%';
+        }
+    </script>
+
+</body>
+
+</html>
