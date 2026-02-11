@@ -1,4 +1,4 @@
-
+version: '3.8'
 
 services:
   redis:
@@ -14,34 +14,59 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET_SOURCE=${MINIO_BUCKET_SOURCE}
+      - MINIO_BUCKET_OUTPUT=${MINIO_BUCKET_OUTPUT}
     volumes:
       - ./uploads:/app/uploads
       - .:/app
     depends_on:
       - redis
+      - minio
 
   worker:
     build: .
     command: celery -A worker.celery_app worker --loglevel=info --concurrency=1
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET_SOURCE=${MINIO_BUCKET_SOURCE}
+      - MINIO_BUCKET_OUTPUT=${MINIO_BUCKET_OUTPUT}
     volumes:
       - ./uploads:/app/uploads
       - .:/app
     depends_on:
       - redis
+      - minio
 
   flower:
     image: mher/flower
     ports:
       - "5555:5555"   
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
     depends_on:
       - redis
 
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
 volumes:
   redis_data:
+  minio_data:

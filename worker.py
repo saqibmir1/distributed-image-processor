@@ -3,7 +3,8 @@ import time
 from celery import Celery
 from PIL import Image
 from config import Config
-
+import boto3
+import io
 
 celery_app = Celery('tasks', broker=Config.CELERY_BROKER_URL, backend=Config.CELERY_RESULT_BACKEND)
 
@@ -11,18 +12,38 @@ celery_app = Celery('tasks', broker=Config.CELERY_BROKER_URL, backend=Config.CEL
 celery_app.conf.update(Config.CELERY_CONFIG)
 
 
-@celery_app.task(name="create_task")
-def create_task(file_path):
+@celery_app.task(name="create_task", bind=True, autoretry_for=(ConnectionError,), retry_backoff=True, retry_kwargs={'max_retries': 5})
+def create_task(self, object_name):
     try:
-        with Image.open(file_path) as img:
+
+        time.sleep(5)
+        s3 = Config.get_minio_client()
+        
+        # 1. Download image from Source Bucket
+        file_stream = io.BytesIO()
+        s3.download_fileobj(Config.MINIO_BUCKET_SOURCE, object_name, file_stream)
+        file_stream.seek(0)
+        
+        # 2. Process Image
+        with Image.open(file_stream) as img:
             img.thumbnail((128,128))
+            
+            output_stream = io.BytesIO()
+            img.save(output_stream, format='JPEG')
+            output_stream.seek(0)
+            
+            # 3. Upload to Output Bucket
+            output_object_name = f"thumbnail-{object_name}"
+            s3.upload_fileobj(
+                output_stream,
+                Config.MINIO_BUCKET_OUTPUT,
+                output_object_name,
+                ExtraArgs={'ContentType': 'image/jpeg'}
+            )
 
-            thumb_path = f'{file_path}.thumbnail.jpg'
-            img.save(thumb_path, 'JPEG')
-
-            return f'Generated: {thumb_path}'
+            return output_object_name
     
     except Exception as e:
-        print(f'Error processing {file_path}: {str(e)}')
-        return False
-
+        print(f'Error processing {object_name}: {str(e)}')
+        # Rethrow to let Celery handle retries if needed, or return FAILED
+        raise e
