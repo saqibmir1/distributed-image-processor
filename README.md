@@ -11,6 +11,7 @@ A high-performance, distributed image processing system built with Python, FastA
     *   **Chaos Engineering**: Random failure simulation (commented out) for testing resilience.
     *   **Retries**: Automatic backoff and retry policy for connection errors.
 *   **Deduplication**: Redis caching prevents re-processing the same image (MD5 hash check).
+*   **Rate Limiting**: Custom asynchronous, sliding-window rate limiter using Lua scripts for atomic Redis operations. Handles `X-Forwarded-For` for proxy support.
 *   **Observability**: Flower instance for real-time monitoring of queues and workers.
 *   **UI/UX**: Premium Glassmorphism interface with drag-and-drop, real-time progress, and visual result display.
 
